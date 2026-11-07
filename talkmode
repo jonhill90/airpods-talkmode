@@ -1,0 +1,19 @@
+#!/bin/zsh
+# talkmode on|off|toggle|status — controls TalkMode.app (keeps AirPods in headset mode)
+APP="$HOME/Applications/TalkMode.app"
+BIN="$APP/Contents/MacOS/TalkMode"
+STATUS="$HOME/Library/Application Support/TalkMode/status.json"
+running() { pgrep -qf "$BIN" }
+case "${1:-status}" in
+  on|off|toggle)
+    "$BIN" --cmd "$1" >/dev/null
+    running || open -g "$APP"
+    t0=$(date +%s); for i in {1..20}; do sleep 0.25; running && [[ $(stat -f %m "$STATUS" 2>/dev/null || echo 0) -ge $t0 ]] && break; done
+    exec "$0" status ;;
+  status)
+    if ! running; then echo "talk mode: OFF (app not running)"; exit 0; fi
+    g() { plutil -extract "$1" raw -o - "$STATUS" 2>/dev/null }
+    echo "talk mode: ${(U)$(g state)}  mic held: $(g device)  input rate: $(g inputSampleRate) Hz"
+    e=$(g error); [[ -n "$e" ]] && echo "error: $e"; true ;;
+  *) echo "usage: talkmode on|off|toggle|status"; exit 2 ;;
+esac
